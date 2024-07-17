@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Encrypt Page</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.4.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: none;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .log-area {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 14px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .log-entry.show {
+            opacity: 1;
+        }
+        .log-entry b {
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Encrypt Page</h1>
+    <textarea id="plainText" placeholder="Enter text to encrypt"></textarea><br>
+    <button onclick="encryptText()">Encrypt</button>
+    <div>日志: <div id="logArea" class="log-area"></div></div>
+</div>
+<script>
+    let stompClient = null;
+
+    function connect() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function(frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/encrypted', function(message) {
+                const cipherData = JSON.parse(message.body);
+                addLog(`<b>加密完成：</b>`);
+                addLog(`<b>文本密文：</b>${cipherData.cipherText}`);
+                addLog(`<b>密钥密文：</b>${cipherData.cipherKey}`);
+                addLog(`<b>数字签名：</b>${cipherData.cipherSignature}`);
+                addLog(`<b>正在打包数据...</b>`);
+                addLog(`<b>打包完成，数据已成功发送至接收端，等待接收端响应...</b>`);
+                document.getElementById("plainText").value = ""
+            });
+        });
+    }
+
+    function encryptText() {
+        const plainText = document.getElementById("plainText").value;
+        addLog(`<b>获取输入内容：</b>${plainText}`);
+        const plainData = { plainText: plainText };
+        stompClient.send("/app/encrypt", {}, JSON.stringify(plainData));
+        addLog(`<b>正在加密, 请等待...</b>`);
+    }
+
+    function addLog(message) {
+        const logArea = document.getElementById("logArea");
+        const logEntry = document.createElement("div");
+        logEntry.className = "log-entry";
+        logEntry.innerHTML = message;
+        logArea.appendChild(logEntry);
+
+        window.getComputedStyle(logEntry).opacity;
+        logEntry.classList.add('show');
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    window.onload = connect;
+</script>
+</body>
+</html>

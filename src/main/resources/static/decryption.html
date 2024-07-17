@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Decrypt Page</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.4.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .log-area {
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 14px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .log-entry.show {
+            opacity: 1;
+        }
+        .log-entry b {
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Decrypt Page</h1>
+    <div>日志: <div id="logArea" class="log-area"></div></div>
+</div>
+<script>
+    let stompClient = null;
+
+    function connect() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function(frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/encrypted', function(message) {
+                addLog(`<b>收到新的数据包，等待提取...</b>`);
+                addLog(`<b>开始提取数据...</b>`);
+                const cipherData = JSON.parse(message.body);
+                addLog(`<b>提取成功：</b>${cipherData.cipherText}`);
+                decryptText(cipherData);
+            });
+
+            stompClient.subscribe('/topic/decrypted', function(message) {
+                const plainData = JSON.parse(message.body);
+                addLog(`<b>解密成功：</b>${plainData.plainText}`);
+            });
+        });
+    }
+
+    function decryptText(cipherData) {
+        addLog(`<b>开始验签解密...</b>`);
+        stompClient.send("/app/decrypt", {}, JSON.stringify(cipherData));
+    }
+
+    function addLog(message) {
+        const logArea = document.getElementById("logArea");
+        const logEntry = document.createElement("div");
+        logEntry.className = "log-entry";
+        logEntry.innerHTML = message;
+        logArea.appendChild(logEntry);
+
+        // Trigger reflow to start the transition
+        window.getComputedStyle(logEntry).opacity;
+        logEntry.classList.add('show');
+
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    window.onload = connect;
+</script>
+</body>
+</html>
